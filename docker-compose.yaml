@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER_FILE=/run/secrets/db_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_user
+      - db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - "${PWD}/init.sql:/docker-entrypoint-initdb.d/init.sql"
+
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.3
+    environment:
+    - KC_DB=${KC_DB}
+    - KC_DB_URL_HOST=${KC_DB_URL_HOST}
+    - KC_DB_URL_DATABASE=${KC_DB_URL_DATABASE}
+    - KC_DB_USERNAME=${KC_DB_USERNAME}
+    - KC_DB_PASSWORD=${KC_DB_PASSWORD}
+    - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
+    - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
+    command: start-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+  
+  backend:
+    image: wkwidzinski/bezpieczenstwo-backend:latest
+    environment:
+      - PUBLIC_KEY=${PUBLIC_KEY}
+      - DB_HOST=${DB_HOST}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_PORT=${DB_PORT}
+    secrets:
+      - db_user
+      - db_password
+    depends_on:
+      - keycloak
+      - db
+  
+  frontend:
+    image: wkwidzinski/bezpieczenstwo-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+
+
+
+
+
+secrets:
+  db_user:
+    file: "./secrets/db_user.txt"
+  db_password:
+    file: "./secrets/db_password.txt"
+
+volumes:
+  pgdata:
